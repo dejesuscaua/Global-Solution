@@ -1,0 +1,168 @@
+{
+  "produto": {
+    "nome": "SeguWatts",
+    "frase": "Descubra o desperdício de energia antes da conta chegar.",
+    "problema": "O morador só descobre o desperdício quando a conta chega, e não sabe qual aparelho causou.",
+    "proposta": "Mostrar quando e onde a casa gasta energia, quanto isso custa e avisar cedo quando um aparelho passa a gastar mais do que deveria.",
+    "cidadao": "Famílias de renda baixa e média no estado de São Paulo",
+    "ods": [
+      {"numero": 10, "nome": "Redução das desigualdades", "porque": "Protege o orçamento de famílias vulneráveis contra custos escondidos na conta."},
+      {"numero": 11, "nome": "Cidades e comunidades sustentáveis", "porque": "Estimula o consumo consciente de um recurso urbano compartilhado."},
+      {"numero": 13, "nome": "Ação contra a mudança do clima", "porque": "Menos desperdício é menos demanda na rede elétrica."}
+    ],
+    "ficha": [
+      ["Nome do produto", "SeguWatts, assistente de uso consciente de energia residencial"],
+      ["Cidadão e território", "Famílias de renda baixa e média no estado de São Paulo"],
+      ["Problema, em uma frase", "O morador só descobre o desperdício quando a conta chega, sem saber a causa"],
+      ["Proposta de valor", "Mostrar onde a energia vai e avisar cedo sobre aparelhos que passaram a gastar mais"],
+      ["Arquitetura", "Sensor (EcoBot) → Visão → Pipeline de dados → Assistente GenAI → Automação de alertas, publicado por pipeline DevSecOps"],
+      ["Fontes de dados", "Open-Meteo, ANEEL (tarifas e bandeiras), IBGE e dados simulados documentados de sensores, contas e cadastro"],
+      ["Modelos de IA", "k-NN embarcado no ESP32, SmolLM2 com RAG e LoRA, agente OpenAI no n8n e YOLO na visão computacional"],
+      ["Indicadores de impacto", "kWh e R$ evitados por residência, alertas confirmados pelo morador e tempo entre o defeito e o aviso"],
+      ["ODS conectados", "10, 11 e 13"]
+    ]
+  },
+  "componentes": [
+    {
+      "slug": "fisico",
+      "ordem": 1,
+      "componente": "Físico",
+      "disciplina": "Project-Based Maker Lab",
+      "nome": "EcoBot",
+      "status": "entregue",
+      "resumo": "Um carrinho robótico com ESP32 que percebe luz acesa por tempo demais e avisa o morador no celular.",
+      "como": [
+        "Sensor de luz (LDR) lido a cada 250 ms no GPIO27",
+        "Alerta quando a claridade fica acima de 100 ADC por 10 segundos seguidos",
+        "Classificador k-NN (k=3) roda no próprio ESP32 e separa Normal, Atenção e Revisar uso",
+        "Display OLED, buzzer e aviso por Bluetooth no aplicativo Dabble"
+      ],
+      "numeros": [["18", "exemplos rotulados no k-NN"], ["10 s", "de luz contínua para alertar"], ["3", "classes de situação"]],
+      "stack": ["ESP32", "C++ / Arduino", "LDR", "HC-SR04", "OLED", "Bluetooth BLE"],
+      "limite": "O LDR não sabe se há alguém no cômodo. A visão computacional resolve exatamente isso.",
+      "links": [
+        {"rotulo": "Repositório", "url": "https://github.com/ruiasiqueira/carrinho"},
+        {"rotulo": "Vídeo", "url": "https://youtu.be/KTf69Ze1XEM"}
+      ]
+    },
+    {
+      "slug": "visao",
+      "ordem": 2,
+      "componente": "Visão",
+      "disciplina": "Applied Computer Vision",
+      "nome": "SeguWatts Vision",
+      "status": "em_construcao",
+      "resumo": "Uma câmera que vê aparelhos ligados em cômodos vazios e transforma isso em alerta de desperdício.",
+      "como": [
+        "Modelo YOLO treinado com fotos das casas da equipe: lâmpadas e telas ligadas ou desligadas",
+        "A mesma rede detecta pessoas em tempo real, quadro a quadro, pela webcam",
+        "Regra: aparelho ligado e cômodo vazio por mais de 2 minutos gera um evento de desperdício",
+        "O evento entra no mesmo fluxo de alertas do n8n usado pela automação"
+      ],
+      "numeros": [["5", "classes treinadas pela equipe"], ["≥ 0,80", "meta de mAP@50"], ["≥ 15 FPS", "na CPU com YOLO nano"]],
+      "stack": ["Python", "Ultralytics YOLO", "OpenCV", "Roboflow"],
+      "limite": "Imagens nunca saem do dispositivo: só o evento (cômodo, aparelho, horário) é enviado.",
+      "links": []
+    },
+    {
+      "slug": "dados",
+      "ordem": 3,
+      "componente": "Dados",
+      "disciplina": "Big Data Architecture & Data Integration",
+      "nome": "Pipeline SeguWatts",
+      "status": "entregue",
+      "resumo": "Coleta clima, tarifas e consumo, organiza tudo em camadas e entrega ao morador um painel com custo por aparelho.",
+      "como": [
+        "Airflow coleta todo dia Open-Meteo, ANEEL, IBGE e o simulador de sensores",
+        "Databricks com Auto Loader carrega Bronze, Prata (qualidade e MERGE) e Ouro (fato e dimensões)",
+        "Defeitos injetados de propósito medem se a detecção de aparelho com problema funciona",
+        "Titular e residência viram SHA-256 com sal guardado fora do código (LGPD)"
+      ],
+      "numeros": [["1,22 mi", "leituras horárias"], ["100", "residências simuladas"], ["268", "alertas de aparelho gerados"]],
+      "stack": ["Airflow", "Databricks", "Delta Lake", "PySpark", "Docker"],
+      "limite": "Sensores, contas e cadastro são simulados porque não existe base aberta de consumo por residência.",
+      "links": [
+        {"rotulo": "Repositório", "url": "https://github.com/luanmacea/seguwatts-bigdata"}
+      ]
+    },
+    {
+      "slug": "inteligencia",
+      "ordem": 4,
+      "componente": "Inteligência",
+      "disciplina": "Generative AI for Engineering",
+      "nome": "Energia Clara",
+      "status": "entregue",
+      "resumo": "Um assistente local que responde dúvidas sobre consumo de energia com fontes citadas, sem mandar dados para a nuvem.",
+      "como": [
+        "SmolLM2 rodando em CPU, comparado em três modos: sem contexto, RAG e RAG com LoRA",
+        "Base de 30 notas e 11 publicações com licença e procedência registradas",
+        "Simulador de consumo por CSV com cenários editáveis em Streamlit",
+        "API FastAPI com as rotas /perguntar, /consultar-base e /simular"
+      ],
+      "numeros": [["60", "perguntas no teste"], ["46,7%", "de acerto com RAG simples"], ["0%", "sem contexto"]],
+      "stack": ["SmolLM2", "LoRA", "RAG", "FastAPI", "Streamlit"],
+      "limite": "Como o LoRA não atingiu qualidade factual, o produto recomenda a consulta documental direta. A decisão está registrada no relatório.",
+      "links": [
+        {"rotulo": "Repositório", "url": "https://github.com/daviguerra05/Global-Solution-AI"}
+      ]
+    },
+    {
+      "slug": "automacao",
+      "ordem": 5,
+      "componente": "Automação",
+      "disciplina": "Robotic Process Automation",
+      "nome": "Alertas SeguWatts",
+      "status": "entregue",
+      "resumo": "Um robô no n8n que audita o consumo de cada aparelho e decide, com IA, se vale mandar um e-mail ao morador.",
+      "como": [
+        "Simula 60 ciclos de leitura de 15 aparelhos da casa",
+        "Classifica cada aparelho como Baixo, Moderado ou Alto e registra no Google Sheets",
+        "Um agente OpenAI avalia a gravidade e evita alertas desnecessários",
+        "Quando vale a pena, o Gmail envia o diagnóstico com dicas de economia"
+      ],
+      "numeros": [["15", "aparelhos monitorados"], ["60", "ciclos por execução"], ["1", "e-mail só quando importa"]],
+      "stack": ["n8n", "JavaScript", "OpenAI", "Google Sheets", "Gmail"],
+      "limite": "A IA decide se o alerta é enviado, mas o histórico completo fica na planilha para auditoria humana.",
+      "links": [
+        {"rotulo": "Repositório", "url": "https://github.com/luigiferrarasinno/SeguWatts"},
+        {"rotulo": "Vídeo", "url": "https://youtu.be/_r6gA2Y_60k"}
+      ]
+    },
+    {
+      "slug": "producao",
+      "ordem": 6,
+      "componente": "Produção",
+      "disciplina": "Secure DevOps Tools & Cloud Computing",
+      "nome": "Deploy Blindado",
+      "status": "no_ar",
+      "resumo": "Esta página. Cada push passa por varredura de segredos, código e imagem antes de chegar à nuvem.",
+      "como": [
+        "Imagem Docker enxuta, com usuário não root e sem segredo dentro",
+        "Azure Container Apps criado por Terraform, sem porta de administração aberta",
+        "GitHub Actions com testes, Gitleaks, Semgrep e Trivy a cada push",
+        "Prometheus, Grafana e Alertmanager medindo as quatro métricas de ouro"
+      ],
+      "numeros": [["4", "barreiras de segurança no pipeline"], ["0", "portas de admin expostas"], ["4", "métricas de ouro no painel"]],
+      "stack": ["Docker", "Terraform", "Azure Container Apps", "GitHub Actions", "Prometheus", "Grafana"],
+      "limite": "Esta vitrine não guarda dados pessoais: não tem formulário, cookie nem banco de dados.",
+      "links": [
+        {"rotulo": "Repositório", "url": "https://github.com/dejesuscaua/Global-Solution"}
+      ]
+    }
+  ],
+  "pipeline": [
+    {"etapa": "Testes", "ferramenta": "pytest", "barra": "rota quebrada ou cabeçalho de segurança ausente"},
+    {"etapa": "Segredos", "ferramenta": "Gitleaks", "barra": "chave ou senha esquecida no código"},
+    {"etapa": "Código", "ferramenta": "Semgrep", "barra": "padrão inseguro em Python ou Dockerfile"},
+    {"etapa": "Infra", "ferramenta": "Terraform + Trivy", "barra": "configuração de nuvem insegura"},
+    {"etapa": "Imagem", "ferramenta": "Trivy", "barra": "biblioteca com vulnerabilidade alta ou crítica"},
+    {"etapa": "Deploy", "ferramenta": "Azure Container Apps", "barra": "versão que não responde ao /healthz"}
+  ],
+  "equipe": [
+    {"nome": "Cauã Gonçalves de Jesus", "rm": "RM97648"},
+    {"nome": "Davi Passanha de Sousa Guerra", "rm": "RM551605"},
+    {"nome": "Luan Silveira Macea", "rm": "RM98290"},
+    {"nome": "Luigi Ferrara Sinno", "rm": "RM98047"},
+    {"nome": "Rui Amorim Siqueira", "rm": "RM98436"}
+  ]
+}

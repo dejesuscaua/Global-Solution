@@ -1,0 +1,47 @@
+# Regras de alerta sobre as quatro métricas de ouro.
+groups:
+  - name: seguwatts-metricas-de-ouro
+    rules:
+      - alert: SeguWattsFora
+        expr: up{job=~"seguwatts.*"} == 0
+        for: 1m
+        labels:
+          severidade: critica
+        annotations:
+          resumo: "SeguWatts ({{ $labels.job }}) não responde"
+          descricao: "O Prometheus não consegue ler /metrics há mais de 1 minuto."
+
+      - alert: TaxaDeErrosAlta
+        expr: |
+          (
+            sum by (job) (rate(seguwatts_http_requests_total{status=~"5.."}[2m]))
+            /
+            sum by (job) (rate(seguwatts_http_requests_total[2m]))
+          ) > 0.05
+        for: 1m
+        labels:
+          severidade: alta
+        annotations:
+          resumo: "Mais de 5% das requisições com erro em {{ $labels.job }}"
+          descricao: "Taxa de erros 5xx atual: {{ $value | humanizePercentage }}."
+
+      - alert: LatenciaAlta
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, le) (rate(seguwatts_http_request_duration_seconds_bucket[5m]))
+          ) > 0.5
+        for: 5m
+        labels:
+          severidade: media
+        annotations:
+          resumo: "p95 acima de 500 ms em {{ $labels.job }}"
+          descricao: "Latência p95 atual: {{ $value | humanizeDuration }}."
+
+      - alert: SaturacaoAlta
+        expr: sum by (job) (seguwatts_http_requests_in_progress) > 20
+        for: 2m
+        labels:
+          severidade: media
+        annotations:
+          resumo: "Muitas requisições simultâneas em {{ $labels.job }}"
+          descricao: "{{ $value }} requisições em andamento."

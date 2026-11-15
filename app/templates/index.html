@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SeguWatts · Global Solution 2026.2</title>
+  <meta name="description" content="{{ c.produto.frase }} Conheça os componentes do MVP SeguWatts.">
+  <meta name="theme-color" content="#141418">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/chakra-petch-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/css/site.css">
+</head>
+<body>
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="/" aria-label="SeguWatts, início">
+    <svg viewBox="0 0 24 24" aria-hidden="true" class="marca-icone"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+    SeguWatts
+  </a>
+  <nav aria-label="Seções">
+    <a href="#problema">Problema</a>
+    <a href="#componentes">Componentes</a>
+    <a href="#producao">Produção</a>
+    <a href="#equipe">Equipe</a>
+  </nav>
+</header>
+
+<main id="conteudo">
+  <section class="hero" aria-labelledby="titulo">
+    <svg class="cidade" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <pattern id="quadra" width="38" height="38" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)">
+          <path d="M38 0H0V38" class="quadra-linha"/>
+        </pattern>
+      </defs>
+      <rect width="1200" height="760" fill="url(#quadra)"/>
+      <path d="M-40 250 L1240 520" class="avenida"/>
+      <path d="M380 -40 L1020 800" class="avenida"/>
+      <path d="M1180 -40 L780 800" class="avenida"/>
+      <path d="M-40 560 C300 470 620 430 1240 610" class="rio"/>
+    </svg>
+
+    <div class="hero-texto">
+      <p class="hero-sobre">Global Solution 2026.2 · CitizenTech</p>
+      <h1 id="titulo">SeguWatts</h1>
+      <p class="hero-frase">{{ c.produto.frase }}</p>
+      <p class="hero-apoio">Seis componentes, um único produto. Siga a linha: ela mostra o caminho da energia, do sensor na parede até o alerta no celular do morador.</p>
+      <p class="no-ar" aria-live="polite">
+        <span class="pulso" aria-hidden="true"></span>
+        Versão <strong data-status="versao">{{ status.versao }}</strong> no ar em <span data-status="ambiente">{{ status.ambiente }}</span>
+      </p>
+    </div>
+
+    {# Trajeto da energia: cada estação é um componente do MVP, na ordem do fluxo de dados. #}
+    {% set pontos = [(560,640),(640,470),(800,430),(870,280),(1040,230),(1100,90)] %}
+    <svg class="trajeto" viewBox="440 40 880 660" role="img" aria-labelledby="trajeto-titulo">
+      <title id="trajeto-titulo">Mapa dos seis componentes do SeguWatts, ligados na ordem em que a energia e os dados passam por eles</title>
+      <polyline class="trajeto-brilho" points="{% for x, y in pontos %}{{ x }},{{ y }} {% endfor %}"/>
+      <polyline class="trajeto-linha" points="{% for x, y in pontos %}{{ x }},{{ y }} {% endfor %}" pathLength="1"/>
+      {% for comp in c.componentes %}
+      {% set p = pontos[loop.index0] %}
+      <a href="#{{ comp.slug }}" class="estacao estacao-{{ comp.status }}">
+        <circle cx="{{ p[0] }}" cy="{{ p[1] }}" r="13" class="estacao-anel"/>
+        <circle cx="{{ p[0] }}" cy="{{ p[1] }}" r="5" class="estacao-miolo"/>
+        <text x="{{ p[0] + 24 }}" y="{{ p[1] + 2 }}" class="estacao-nome">{{ comp.componente }}</text>
+        <text x="{{ p[0] + 24 }}" y="{{ p[1] + 24 }}" class="estacao-projeto">{{ comp.nome }}</text>
+      </a>
+      {% endfor %}
+    </svg>
+  </section>
+
+  <section id="problema" class="bloco problema" aria-labelledby="problema-titulo">
+    <div class="problema-texto">
+      <h2 id="problema-titulo">A conta de luz chega como surpresa</h2>
+      <p class="destaque">{{ c.produto.problema }}</p>
+      <p>{{ c.produto.proposta }}</p>
+      <p class="quem">Para quem: {{ c.produto.cidadao }}.</p>
+    </div>
+    <div class="ficha">
+      <h3>Ficha técnica do MVP</h3>
+      <dl>
+        {% for rotulo, valor in c.produto.ficha %}
+        <div class="ficha-linha"><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
+        {% endfor %}
+      </dl>
+    </div>
+  </section>
+
+  <section id="componentes" class="bloco" aria-labelledby="componentes-titulo">
+    <h2 id="componentes-titulo">Os componentes, na ordem em que os dados passam</h2>
+    <p class="intro">Cada disciplina construiu uma peça do mesmo sistema. O trilho à esquerda é a mesma linha do mapa acima.</p>
+
+    <ol class="trilho">
+      {% for comp in c.componentes %}
+      <li id="{{ comp.slug }}" class="parada parada-{{ comp.status }}">
+        <div class="parada-marco" aria-hidden="true"><span>{{ comp.ordem }}</span></div>
+        <article class="parada-corpo" aria-labelledby="t-{{ comp.slug }}">
+          <p class="parada-meta">
+            <span class="parada-componente">{{ comp.componente }}</span>
+            <span class="parada-disciplina">{{ comp.disciplina }}</span>
+            {% if comp.status == 'em_construcao' %}<span class="selo selo-obra">Em construção</span>{% endif %}
+            {% if comp.status == 'no_ar' %}<span class="selo selo-ar">Você está aqui</span>{% endif %}
+          </p>
+          <h3 id="t-{{ comp.slug }}">{{ comp.nome }}</h3>
+          <p class="parada-resumo">{{ comp.resumo }}</p>
+
+          <div class="parada-detalhe">
+            <div>
+              <h4>Como funciona</h4>
+              <ul class="como">
+                {% for item in comp.como %}<li>{{ item }}</li>{% endfor %}
+              </ul>
+            </div>
+            <dl class="numeros">
+              {% for valor, rotulo in comp.numeros %}
+              <div><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
+              {% endfor %}
+            </dl>
+          </div>
+
+          <p class="limite"><strong>Limite assumido.</strong> {{ comp.limite }}</p>
+
+          <div class="parada-rodape">
+            <p class="stack"><span class="sr">Tecnologias:</span>{% for s in comp.stack %}<span>{{ s }}</span>{% endfor %}</p>
+            {% if comp.links %}
+            <p class="links">
+              {% for l in comp.links %}<a href="{{ l.url }}" rel="noopener noreferrer" target="_blank">{{ l.rotulo }}<span class="sr"> de {{ comp.nome }} (abre em nova aba)</span></a>{% endfor %}
+            </p>
+            {% else %}
+            <p class="links links-vazio">Repositório e vídeo publicados na entrega da disciplina.</p>
+            {% endif %}
+          </div>
+        </article>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section id="producao" class="bloco producao" aria-labelledby="producao-titulo">
+    <h2 id="producao-titulo">Como esta página chegou até você</h2>
+    <p class="intro">Ninguém publica clicando em botão. Cada push percorre estas etapas, e qualquer uma delas pode barrar a versão antes que ela chegue ao cidadão.</p>
+    <ol class="esteira">
+      {% for e in c.pipeline %}
+      <li>
+        <span class="esteira-n">{{ loop.index }}</span>
+        <h3>{{ e.etapa }}</h3>
+        <p class="esteira-ferramenta">{{ e.ferramenta }}</p>
+        <p>Barra: {{ e.barra }}.</p>
+      </li>
+      {% endfor %}
+    </ol>
+    <div class="painel-vivo">
+      <div><span>Versão publicada</span><strong data-status="versao">{{ status.versao }}</strong></div>
+      <div><span>Ambiente</span><strong data-status="ambiente">{{ status.ambiente }}</strong></div>
+      <div><span>No ar há</span><strong data-status="segundos_no_ar" data-segundos="{{ status.segundos_no_ar }}">{{ status.segundos_no_ar }} s</strong></div>
+      <div><span>Dados pessoais guardados</span><strong>Nenhum</strong></div>
+    </div>
+  </section>
+
+  <section class="bloco ods" aria-labelledby="ods-titulo">
+    <h2 id="ods-titulo">Objetivos de Desenvolvimento Sustentável</h2>
+    <ul>
+      {% for o in c.produto.ods %}
+      <li><span class="ods-n">ODS {{ o.numero }}</span><h3>{{ o.nome }}</h3><p>{{ o.porque }}</p></li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section id="equipe" class="bloco equipe" aria-labelledby="equipe-titulo">
+    <h2 id="equipe-titulo">Equipe</h2>
+    <ul>
+      {% for p in c.equipe %}<li><span>{{ p.nome }}</span><span class="rm">{{ p.rm }}</span></li>{% endfor %}
+    </ul>
+  </section>
+</main>
+
+<footer class="rodape">
+  <p>FIAP · Engenharia de Software, 4º ano · Global Solution 2026.2</p>
+  <p>Sem cookies, sem formulários, sem rastreamento. <a href="/api/projetos">Conteúdo em JSON</a></p>
+</footer>
+<script src="/static/js/site.js" defer></script>
+</body>
+</html>

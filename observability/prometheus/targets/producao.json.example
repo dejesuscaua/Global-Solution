@@ -1,0 +1,6 @@
+[
+  {
+    "targets": ["seguwatts-app.SEU-AMBIENTE.brazilsouth.azurecontainerapps.io"],
+    "labels": { "ambiente": "producao" }
+  }
+]
