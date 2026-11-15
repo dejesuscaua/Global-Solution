@@ -1,0 +1,6 @@
+# Copie para backend.hcl (ignorado pelo git) e ajuste o nome da storage account.
+resource_group_name  = "rg-seguwatts-tfstate"
+storage_account_name = "stseguwattstfstate"
+container_name       = "tfstate"
+key                  = "vitrine.tfstate"
+use_azuread_auth     = true

@@ -1,0 +1,84 @@
+# Stack local completa: aplicação + Prometheus + Alertmanager + Grafana + receptor de alertas.
+#   docker compose up -d --build
+# Todas as portas escutam apenas em 127.0.0.1 (nada exposto para a rede).
+name: seguwatts
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-local}
+    image: seguwatts-vitrine:local
+    environment:
+      AMBIENTE: local
+      DEMO_FALHAS: "true"   # habilita /api/demo/falha para demonstrar o alerta de erros
+    ports:
+      - "127.0.0.1:8000:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 512M
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/alertas.yml:/etc/prometheus/alertas.yml:ro
+      - ./observability/prometheus/targets:/etc/prometheus/targets:ro
+      - ${METRICS_TOKEN_FILE:-./observability/prometheus/metrics_token.example}:/etc/prometheus/metrics_token:ro
+      - prometheus-dados:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on: [app, alertmanager]
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+    depends_on: [notificador]
+    restart: unless-stopped
+
+  notificador:
+    # Recebe o webhook do Alertmanager e imprime no log: evidência de alerta disparado.
+    image: mendhak/http-https-echo:37
+    environment:
+      HTTP_PORT: 8080
+      LOG_IGNORE_PATH: /ping
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?defina GRAFANA_ADMIN_PASSWORD no arquivo .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/seguwatts-metricas-de-ouro.json
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-dados:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on: [prometheus]
+    restart: unless-stopped
+
+volumes:
+  prometheus-dados:
+  grafana-dados:

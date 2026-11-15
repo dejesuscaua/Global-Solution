@@ -1,0 +1,181 @@
+# Pipeline DevSecOps da vitrine SeguWatts.
+#
+#   push em qualquer branch / pull request:
+#     testes ─┐
+#     gitleaks ├─► build da imagem ─► Trivy na imagem ─► (main) push no GHCR ─► deploy no Azure ─► smoke test
+#     semgrep ─┤
+#     iac ─────┘   (terraform fmt/validate + Trivy config)
+#
+# Qualquer barreira que falhar interrompe o caminho: nada chega à produção sem passar por todas.
+# Actions de terceiros são fixadas por SHA de commit (protege contra tag sequestrada).
+
+name: DevSecOps
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_IMAGE: aquasec/trivy:0.58.1
+  SEMGREP_IMAGE: semgrep/semgrep:1.140.0
+
+jobs:
+  testes:
+    name: Testes (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  gitleaks:
+    name: Segredos (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  semgrep:
+    name: Código (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Semgrep (Python, Dockerfile, segredos e Terraform)
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src "$SEMGREP_IMAGE" \
+            semgrep scan \
+              --config p/python --config p/dockerfile --config p/secrets --config p/terraform \
+              --error --metrics=off
+
+  iac:
+    name: Infra (Terraform + Trivy config)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.13.3"
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+      - name: Trivy config (Terraform e Dockerfile)
+        working-directory: .
+        run: |
+          docker run --rm -v "$PWD:/repo" "$TRIVY_IMAGE" config \
+            --severity HIGH,CRITICAL --exit-code 1 /repo
+
+  build:
+    name: Imagem (build + Trivy)
+    needs: [testes, gitleaks, semgrep, iac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      imagem: ${{ steps.nome.outputs.imagem }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Nome da imagem (GHCR exige minúsculas)
+        id: nome
+        run: echo "imagem=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: |
+          docker build --pull \
+            --build-arg GIT_SHA="${GITHUB_SHA}" \
+            -t "${{ steps.nome.outputs.imagem }}:${GITHUB_SHA}" .
+
+      - name: Trivy na imagem (barra HIGH e CRITICAL com correção disponível)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" image \
+            --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress \
+            "${{ steps.nome.outputs.imagem }}:${GITHUB_SHA}" | tee trivy.txt
+          {
+            echo '### Trivy: imagem aprovada'
+            echo '```'
+            tail -n 20 trivy.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Login no GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push (somente main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          IMG="${{ steps.nome.outputs.imagem }}"
+          docker tag "$IMG:${GITHUB_SHA}" "$IMG:latest"
+          docker push "$IMG:${GITHUB_SHA}"
+          docker push "$IMG:latest"
+
+  deploy:
+    name: Deploy (Azure Container Apps)
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_HABILITADO == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: producao
+      url: ${{ steps.smoke.outputs.url }}
+    steps:
+      - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Atualiza a imagem do Container App
+        env:
+          RG: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          APP: ${{ secrets.AZURE_CONTAINERAPP_NAME }}
+        run: |
+          az extension add --name containerapp --upgrade --yes --only-show-errors
+          az containerapp update --name "$APP" --resource-group "$RG" \
+            --image "${{ needs.build.outputs.imagem }}:${GITHUB_SHA}" --only-show-errors -o none
+
+      - name: Smoke test (a nova versão precisa responder no /healthz)
+        id: smoke
+        env:
+          RG: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          APP: ${{ secrets.AZURE_CONTAINERAPP_NAME }}
+        run: |
+          FQDN=$(az containerapp show --name "$APP" --resource-group "$RG" --query properties.configuration.ingress.fqdn -o tsv)
+          URL="https://${FQDN}"
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+          ESPERADO="${GITHUB_SHA::7}"
+          for i in $(seq 1 30); do
+            VERSAO=$(curl -fsS "${URL}/healthz" | python3 -c 'import json,sys; print(json.load(sys.stdin)["versao"])' || true)
+            if [ "$VERSAO" = "$ESPERADO" ]; then
+              echo "### Deploy concluído: ${URL} na versão ${VERSAO}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Tentativa $i: versão no ar '${VERSAO}', esperando '${ESPERADO}'..."
+            sleep 10
+          done
+          echo "A versão ${ESPERADO} não respondeu no /healthz em 5 minutos." >&2
+          exit 1

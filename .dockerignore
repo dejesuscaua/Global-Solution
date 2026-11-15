@@ -1,0 +1,5 @@
+# Só o necessário entra na imagem: nada de git, testes, infra, segredos ou caches.
+*
+!app/
+!requirements.txt
+app/**/__pycache__

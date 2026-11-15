@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Segredos e variáveis locais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Terraform: state e tfvars NUNCA vão para o repositório
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+backend.hcl
+crash.log
+.terraform.lock.hcl.bak
+
+# Observabilidade local
+observability/prometheus/metrics_token
+observability/prometheus/targets/producao.json
