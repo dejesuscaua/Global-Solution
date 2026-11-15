@@ -17,4 +17,9 @@ terraform {
 provider "azurerm" {
   features {}
   # subscription_id vem de ARM_SUBSCRIPTION_ID (variável de ambiente), nunca do código.
+
+  # Não tenta registrar dezenas de provedores que não usamos (falhava com 409 em
+  # Microsoft.HDInsight). Os necessários (Microsoft.Web, Microsoft.ManagedIdentity e
+  # Microsoft.Storage) são registrados explicitamente por scripts/azure_setup.sh.
+  resource_provider_registrations = "none"
 }
