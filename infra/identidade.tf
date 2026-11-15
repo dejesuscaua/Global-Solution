@@ -15,14 +15,28 @@ resource "azurerm_user_assigned_identity" "deploy" {
   tags                = var.tags
 }
 
+# Só o job que roda no environment "producao" deste repositório pode usar a identidade.
+#
+# O GitHub emite o "subject" do token em dois formatos, conforme a configuração do
+# repositório, e cadastramos os dois:
+#   imutável: repo:dono@<id do dono>/repo@<id do repo>:environment:producao
+#             (padrão em repositórios novos; os IDs impedem que alguém recrie um repo
+#             com o mesmo nome e herde o acesso)
+#   clássico: repo:dono/repo:environment:producao
 resource "azurerm_federated_identity_credential" "github_producao" {
-  name                = "github-${var.prefixo}-producao"
-  resource_group_name = azurerm_resource_group.rg.name
-  parent_id           = azurerm_user_assigned_identity.deploy.id
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = "https://token.actions.githubusercontent.com"
-  # Só o job que roda no environment "producao" deste repositório pode usar a identidade.
-  subject = "repo:${var.github_repositorio}:environment:producao"
+  name      = "github-${var.prefixo}-producao"
+  parent_id = azurerm_user_assigned_identity.deploy.id
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = "https://token.actions.githubusercontent.com"
+  subject   = "repo:${var.github_dono}@${var.github_dono_id}/${var.github_repo_nome}@${var.github_repo_id}:environment:producao"
+}
+
+resource "azurerm_federated_identity_credential" "github_producao_classico" {
+  name      = "github-${var.prefixo}-producao-classico"
+  parent_id = azurerm_user_assigned_identity.deploy.id
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = "https://token.actions.githubusercontent.com"
+  subject   = "repo:${var.github_dono}/${var.github_repo_nome}:environment:producao"
 }
 
 # Contributor apenas no resource group da aplicação: o pipeline consegue atualizar o

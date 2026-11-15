@@ -49,10 +49,30 @@ variable "demo_falhas" {
   default     = false
 }
 
-variable "github_repositorio" {
-  description = "Repositório (dono/nome, com maiúsculas exatas) autorizado a fazer deploy via OIDC."
+# Repositório autorizado a fazer deploy via OIDC. Os IDs numéricos aparecem no log do
+# azure/login ("subject claim") e em https://api.github.com/repos/<dono>/<repo>.
+variable "github_dono" {
+  description = "Dono do repositório no GitHub, com maiúsculas exatas."
   type        = string
-  default     = "dejesuscaua/Global-Solution"
+  default     = "dejesuscaua"
+}
+
+variable "github_dono_id" {
+  description = "ID numérico do dono no GitHub."
+  type        = string
+  default     = "84869963"
+}
+
+variable "github_repo_nome" {
+  description = "Nome do repositório, com maiúsculas exatas."
+  type        = string
+  default     = "Global-Solution"
+}
+
+variable "github_repo_id" {
+  description = "ID numérico do repositório no GitHub."
+  type        = string
+  default     = "1459249630"
 }
 
 variable "tags" {
