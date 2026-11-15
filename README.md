@@ -52,7 +52,7 @@ Sensores, contas e cadastro são simulados, com defeitos injetados e registrados
 | Componente | Disciplina | Repositório |
 |---|---|---|
 | Físico: EcoBot | Project-Based Maker Lab | https://github.com/ruiasiqueira/carrinho |
-| Visão: SeguWatts Vision | Applied Computer Vision | em construção |
+| Visão: SeguWatts Vision | Applied Computer Vision | https://github.com/dejesuscaua/Gs-visaocomputacional |
 | Dados: Pipeline SeguWatts | Big Data Architecture & Data Integration | https://github.com/luanmacea/seguwatts-bigdata |
 | Inteligência: Energia Clara | Generative AI for Engineering | https://github.com/daviguerra05/Global-Solution-AI |
 | Automação: Alertas SeguWatts | Robotic Process Automation | https://github.com/luigiferrarasinno/SeguWatts |
