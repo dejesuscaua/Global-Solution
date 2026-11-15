@@ -14,16 +14,38 @@ A aplicação apresenta os seis componentes do produto, cada um construído em u
 
 | Item | Descrição |
 |---|---|
-| **Nome do produto** | SeguWatts, assistente de uso consciente de energia residencial |
+| **Nome do produto** | SeguWatts (“segura os watts”), assistente de uso consciente de energia residencial |
 | **Cidadão e território** | Famílias de renda baixa e média no estado de São Paulo |
-| **Problema, em uma frase** | O morador só descobre o desperdício quando a conta chega, sem saber a causa |
-| **Proposta de valor** | Mostrar onde a energia vai e avisar cedo sobre aparelhos que passaram a gastar mais |
+| **Problema, em uma frase** | O morador só descobre que gastou demais quando a conta chega, e mesmo assim não sabe por quê |
+| **Proposta de valor** | Mostrar quando e onde a casa gasta, quanto custa e avisar cedo sobre aparelho com defeito, dizendo em reais quanto dá para economizar |
 | **Arquitetura: componentes** | EcoBot (físico) → SeguWatts Vision (visão) → Pipeline Airflow/Databricks (dados) → Energia Clara (GenAI) → Alertas n8n (RPA), publicados por esta esteira DevSecOps (produção) |
 | **Fontes de dados** | Open-Meteo, ANEEL (tarifas e bandeiras), IBGE e dados simulados documentados de sensores, contas e cadastro |
 | **Modelos de IA utilizados** | k-NN embarcado no ESP32, SmolLM2 com RAG e LoRA, agente OpenAI no n8n, YOLO na visão computacional |
 | **URL do MVP e repositório** | Ver tabela acima |
-| **Indicadores de impacto** | kWh e R$ evitados por residência, alertas confirmados pelo morador, tempo entre o defeito e o aviso |
+| **Indicadores de impacto** | Casas com defeito detectado, R$ e kWh economizados por casa e % de redução no consumo. Na simulação: 30 de 100 casas, R$ 621/mês no total, R$ 20,73 por casa, −10,5% de consumo |
 | **ODS conectados** | 10 (redução das desigualdades), 11 (cidades sustentáveis), 13 (ação climática) |
+
+## O problema e o impacto
+
+A conta de luz mostra só o total do mês. Não diz em que horário, em que dia nem em qual aparelho a energia foi usada. Uma geladeira com a borracha da porta gasta, ou um aparelho esquecido ligado, pode aumentar a conta por meses sem ninguém perceber. Para famílias de renda baixa e média, esse desperdício invisível pesa no orçamento.
+
+**Como funciona.** Um sensor geral no quadro de energia e sensores de tomada nos aparelhos que mais gastam e mais dão defeito (geladeira, freezer, ar-condicionado) medem o consumo a cada hora. O morador informa a conta de luz e os aparelhos que tem. O sistema cruza tudo com dados públicos reais (clima do Open-Meteo, tarifas e bandeiras da ANEEL, municípios do IBGE) e entrega:
+
+- os dias e horários em que a casa mais gasta;
+- o custo de cada mês, já com a tarifa da distribuidora e a bandeira tarifária;
+- quanto cada aparelho pesa na conta;
+- um alerta quando um aparelho passa a gastar mais do que o normal dele mesmo, sugerindo uma verificação e mostrando quanto o morador economizaria resolvendo.
+
+**Resultado na simulação (100 residências):**
+
+| Indicador | Valor |
+|---|---|
+| Casas com aparelho gastando acima do normal | 30 de 100 |
+| Economia mensal somando essas casas | ≈ R$ 621 |
+| Economia média por casa | R$ 20,73 por mês |
+| Redução no consumo dessas famílias | 10,5% |
+
+Sensores, contas e cadastro são simulados, com defeitos injetados e registrados para medir a detecção. Clima, tarifas e bandeiras são dados públicos reais.
 
 ### Repositórios dos componentes
 

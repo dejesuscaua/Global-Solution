@@ -20,6 +20,7 @@
   </a>
   <nav aria-label="Seções">
     <a href="#problema">Problema</a>
+    <a href="#impacto">Impacto</a>
     <a href="#componentes">Componentes</a>
     <a href="#producao">Produção</a>
     <a href="#equipe">Equipe</a>
@@ -42,7 +43,7 @@
     </svg>
 
     <div class="hero-texto">
-      <p class="hero-sobre">Global Solution 2026.2 · CitizenTech</p>
+      <p class="hero-sobre">{{ c.produto.apelido }}</p>
       <h1 id="titulo">SeguWatts</h1>
       <p class="hero-frase">{{ c.produto.frase }}</p>
       <p class="hero-apoio">Seis componentes, um único produto. Siga a linha: ela mostra o caminho da energia, do sensor na parede até o alerta no celular do morador.</p>
@@ -74,6 +75,7 @@
     <div class="problema-texto">
       <h2 id="problema-titulo">A conta de luz chega como surpresa</h2>
       <p class="destaque">{{ c.produto.problema }}</p>
+      <p>{{ c.produto.exemplo }}</p>
       <p>{{ c.produto.proposta }}</p>
       <p class="quem">Para quem: {{ c.produto.cidadao }}.</p>
     </div>
@@ -84,6 +86,27 @@
         <div class="ficha-linha"><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
         {% endfor %}
       </dl>
+    </div>
+  </section>
+
+  <section id="impacto" class="bloco entrega" aria-labelledby="entrega-titulo">
+    <h2 id="entrega-titulo">O que o morador recebe</h2>
+    <p class="intro">{{ c.produto.como_funciona }}</p>
+    <ul class="entregas">
+      {% for e in c.produto.entregas %}
+      <li><h3>{{ e.titulo }}</h3><p>{{ e.texto }}</p></li>
+      {% endfor %}
+    </ul>
+
+    <div class="resultado" aria-labelledby="resultado-titulo">
+      <h3 id="resultado-titulo">Resultado na simulação</h3>
+      <p class="resultado-contexto">{{ c.produto.simulacao.contexto }}</p>
+      <dl class="resultado-numeros">
+        {% for valor, rotulo in c.produto.simulacao.numeros %}
+        <div><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
+        {% endfor %}
+      </dl>
+      <p class="resultado-nota">{{ c.produto.simulacao.nota }}</p>
     </div>
   </section>
 

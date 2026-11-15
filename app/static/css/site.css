@@ -127,6 +127,22 @@ a:hover { color: var(--texto); }
 .ficha dt { font-family: var(--display); font-weight: 600; font-size: 0.95rem; }
 .ficha dd { margin: 0; color: #d6d4dc; font-size: 1rem; line-height: 1.45; }
 
+
+/* O que o morador recebe + resultado */
+.entregas { list-style: none; margin: 40px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 clamp(16px, 3vw, 32px); }
+.entregas li { border-top: 3px solid var(--magenta); padding-top: 18px; }
+.entregas h3 { font-size: 1.25rem; }
+.entregas p { color: var(--apagado); font-size: 1rem; line-height: 1.5; margin-top: 10px; }
+.resultado { margin-top: clamp(48px, 7vw, 72px); background: var(--vinho); border-radius: 18px; padding: clamp(26px, 4.5vw, 52px); position: relative; overflow: hidden; }
+.resultado::after { content: ""; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border: 3px solid rgba(255, 255, 255, 0.12); border-radius: 50%; }
+.resultado h3 { font-size: 1.1rem; font-weight: 500; color: var(--rosa); }
+.resultado-contexto { font-size: clamp(1.2rem, 2.2vw, 1.5rem); line-height: 1.4; margin-top: 12px; max-width: 46ch; }
+.resultado-numeros { margin: 34px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+.resultado-numeros div { display: flex; flex-direction: column; border-left: 2px solid rgba(255, 255, 255, 0.28); padding-left: 16px; }
+.resultado-numeros dd { order: -1; margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(2.1rem, 3.4vw, 2.7rem); line-height: 1; color: #fff; white-space: nowrap; }
+.resultado-numeros dt { margin-top: 8px; color: #f3d3df; font-size: 1rem; line-height: 1.4; }
+.resultado-nota { margin-top: 30px; color: #e7bfcd; font-size: 0.95rem; font-style: italic; max-width: 70ch; }
+
 /* Trilho de componentes */
 .trilho { list-style: none; margin: 48px 0 0; padding: 0; }
 .parada { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: clamp(14px, 3vw, 36px); position: relative; }
@@ -154,9 +170,9 @@ a:hover { color: var(--texto); }
 .como li { position: relative; padding: 7px 0 7px 22px; font-size: 1.02rem; line-height: 1.45; color: #dddbe3; }
 .como li::before { content: ""; position: absolute; left: 0; top: 15px; width: 9px; height: 9px; border: 2px solid var(--magenta); border-radius: 50%; }
 .numeros { margin: 0; display: grid; gap: 4px; align-content: start; }
-.numeros div { display: flex; flex-direction: column-reverse; padding: 10px 0; border-bottom: 1px solid var(--trilho); }
+.numeros div { display: flex; flex-direction: column; padding: 10px 0; border-bottom: 1px solid var(--trilho); }
 .numeros div:last-child { border-bottom: 0; }
-.numeros dd { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(1.8rem, 3.4vw, 2.4rem); line-height: 1; color: var(--texto); }
+.numeros dd { order: -1; margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(1.8rem, 3.4vw, 2.4rem); line-height: 1; color: var(--texto); }
 .numeros dt { color: var(--apagado); font-size: 0.95rem; margin-top: 4px; }
 
 .limite { margin-top: 18px; padding: 14px 18px; background: rgba(126, 16, 54, 0.32); border-left: 3px solid var(--vinho); border-radius: 0 10px 10px 0; font-size: 1rem; max-width: 72ch; }
@@ -211,6 +227,8 @@ a:hover { color: var(--texto); }
   .painel-vivo div:nth-child(3) { border-left: 0; }
   .painel-vivo div:nth-child(n+3) { border-top: 1px solid var(--trilho); }
   .ods ul { grid-template-columns: 1fr; }
+  .entregas { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 28px; }
+  .resultado-numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 28px; }
 }
 @media (max-width: 640px) {
   body { font-size: 1.05rem; }
@@ -222,6 +240,7 @@ a:hover { color: var(--texto); }
   .parada::before { left: 17px; }
   .parada-marco span { width: 36px; height: 36px; font-size: 1rem; }
   .parada-detalhe { grid-template-columns: 1fr; }
+  .entregas, .resultado-numeros { grid-template-columns: 1fr; }
   .esteira { grid-template-columns: 1fr; }
   .esteira li { display: grid; grid-template-columns: 44px 1fr; column-gap: 16px; padding: 0 0 22px; }
   .esteira li::before { left: 21px; top: 44px; bottom: 0; right: auto; width: 2px; height: auto; display: block; }
