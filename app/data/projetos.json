@@ -165,7 +165,7 @@
         "Modelo YOLO treinado com fotos das casas da equipe: lâmpadas e telas ligadas ou desligadas",
         "A mesma rede detecta pessoas em tempo real, quadro a quadro, pela webcam",
         "Regra: aparelho ligado e cômodo vazio por mais de 2 minutos gera um evento de desperdício",
-        "O evento entra no mesmo fluxo de alertas do n8n usado pela automação"
+        "O evento, sem nenhuma imagem, vai para o mesmo webhook do n8n usado pela automação e para um CSV local"
       ],
       "numeros": [
         [
@@ -187,8 +187,13 @@
         "OpenCV",
         "Roboflow"
       ],
-      "limite": "Imagens nunca saem do dispositivo: só o evento (cômodo, aparelho, horário) é enviado.",
-      "links": []
+      "limite": "Imagens nunca saem do dispositivo: só o evento (cômodo, aparelho, horário e custo estimado) é enviado. Código e integração prontos; o modelo final depende do dataset fotografado pela equipe.",
+      "links": [
+        {
+          "rotulo": "Repositório",
+          "url": "https://github.com/dejesuscaua/Gs-visaocomputacional"
+        }
+      ]
     },
     {
       "slug": "dados",
