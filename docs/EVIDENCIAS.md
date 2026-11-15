@@ -2,6 +2,19 @@
 
 O PDF único deve trazer links clicáveis (URL pública, repositório, execuções do Actions) e os prints abaixo. A coluna **Pontos** segue a rubrica de 14 pontos da disciplina.
 
+## Evidências já registradas
+
+Execuções reais do pipeline, que ficam disponíveis no GitHub Actions por 90 dias:
+
+| Evidência | Execução | O que mostra |
+|---|---|---|
+| **Execução barrada** | [Run #22: `demo: credencial esquecida no código`](https://github.com/dejesuscaua/Global-Solution/actions/runs/43771485389) | O job *Segredos (Gitleaks)* falha com "🛑 Leaks detected" (regra `generic-api-key`, `app/config_local.py`, linha 4). Build, Trivy da imagem e deploy nem começam. |
+| **Execução corrigida** | [Run #23: `fix: remove credencial do código`](https://github.com/dejesuscaua/Global-Solution/actions/runs/43771552905) | O mesmo pipeline fica verde depois de remover a chave. Por ser branch de demonstração (`demo/segredo-vazado`), não há deploy: só a `main` publica. |
+| **Deploy automático** | [Run #20: merge do PR #5 na `main`](https://github.com/dejesuscaua/Global-Solution/actions/runs/43770948682) | Todas as barreiras passam, a imagem vai para o GHCR, o login no Azure é feito por **OIDC, sem senha**, e o smoke test confirma o `/healthz` com o SHA do commit. |
+| **MVP no ar** | https://seguwatts-9d76d2.azurewebsites.net | Vitrine publicada no Azure App Service F1. O painel "Versão publicada" mostra o commit em produção. |
+
+Sobre o vazamento: a chave do run #22 é fictícia. Em um caso real, apagar o arquivo não basta, porque a chave continua no histórico do git. Ela precisaria ser **revogada** no provedor e substituída.
+
 ## Checklist de prints
 
 | # | Print | Onde tirar | Pontos |
@@ -28,10 +41,14 @@ Faça a demonstração em uma branch separada, para não sujar a `main`. O pipel
 
 ### Opção A: segredo vazado (Gitleaks)
 
+Já executada: veja os runs #22 e #23 na tabela do topo. Para repetir:
+
 ```bash
 git switch -c demo/segredo-vazado
-# Token falso com o formato de um token do GitHub (36 caracteres aleatórios depois de ghp_)
-echo "GITHUB_TOKEN=ghp_$(openssl rand -hex 18)" > app/config_local.py
+# Chave fictícia com cara de chave de API (a regra generic-api-key do Gitleaks detecta).
+# Não use o formato ghp_ do GitHub: a push protection do próprio GitHub pode recusar o
+# push antes de o pipeline rodar, e a demonstração perde o sentido.
+echo "SEGUWATTS_API_KEY = \"sw_live_$(openssl rand -hex 20)\"" > app/config_local.py
 git add app/config_local.py
 git commit -m "demo: credencial esquecida no código"
 git push -u origin demo/segredo-vazado
@@ -68,8 +85,9 @@ Adicione em `app/main.py` uma rota com `subprocess.run(cmd, shell=True)` receben
 
 ## Links para colar no PDF
 
-- URL pública do MVP: `https://seguwatts-xxxxxx.azurewebsites.net`
+- URL pública do MVP: https://seguwatts-9d76d2.azurewebsites.net
 - Repositório: https://github.com/dejesuscaua/Global-Solution
-- Execução barrada: `https://github.com/dejesuscaua/Global-Solution/actions/runs/<id>`
-- Execução corrigida com deploy: `https://github.com/dejesuscaua/Global-Solution/actions/runs/<id>`
+- Execução barrada: https://github.com/dejesuscaua/Global-Solution/actions/runs/43771485389
+- Execução corrigida: https://github.com/dejesuscaua/Global-Solution/actions/runs/43771552905
+- Deploy automático via OIDC: https://github.com/dejesuscaua/Global-Solution/actions/runs/43770948682
 - Pacote da imagem: https://github.com/dejesuscaua/Global-Solution/pkgs/container/global-solution

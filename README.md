@@ -6,9 +6,10 @@ A aplicação apresenta os seis componentes do produto, cada um construído em u
 
 | | |
 |---|---|
-| **URL pública** | `https://<preencher após o terraform apply>` |
+| **URL pública** | https://seguwatts-9d76d2.azurewebsites.net (plano F1: a primeira visita depois de um tempo parado leva uns 30 s) |
 | **Repositório** | https://github.com/dejesuscaua/Global-Solution |
 | **Painel de observabilidade** | Grafana local apontando para a URL pública (ver [Observabilidade](#observabilidade)) |
+| **Evidências** | [docs/EVIDENCIAS.md](docs/EVIDENCIAS.md): execução barrada, execução corrigida e deploy automático |
 
 ## Ficha técnica do MVP
 
