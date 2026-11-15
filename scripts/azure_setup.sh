@@ -10,6 +10,7 @@
 #
 # Variáveis opcionais:
 #   LOCALIZACAO=eastus2 ./scripts/azure_setup.sh   (se a sua assinatura não permitir brazilsouth)
+#   SKU=B1 ./scripts/azure_setup.sh                (padrão F1, gratuito)
 #   PREFIXO=seguwatts                              (nome base dos recursos)
 #
 # O script é idempotente: se algo falhar no meio, corrija e rode de novo.
@@ -17,8 +18,9 @@ set -euo pipefail
 
 LOCALIZACAO="${LOCALIZACAO:-brazilsouth}"
 PREFIXO="${PREFIXO:-seguwatts}"
+SKU="${SKU:-F1}"
 REPO_GITHUB="${REPO_GITHUB:-dejesuscaua/Global-Solution}"
-IMAGEM="${IMAGEM:-ghcr.io/dejesuscaua/global-solution:latest}"
+IMAGEM="${IMAGEM:-dejesuscaua/global-solution:latest}"
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
 INFRA="$RAIZ/infra"
 
@@ -36,7 +38,7 @@ ASSINATURA_ID="$(az account show --query id -o tsv)"
 ASSINATURA_NOME="$(az account show --query name -o tsv)"
 TENANT_ID="$(az account show --query tenantId -o tsv)"
 ok "Assinatura: $ASSINATURA_NOME ($ASSINATURA_ID)"
-ok "Região: $LOCALIZACAO | Prefixo: $PREFIXO"
+ok "Região: $LOCALIZACAO | Plano: $SKU | Prefixo: $PREFIXO"
 ok "$(terraform version | head -1)"
 export ARM_SUBSCRIPTION_ID="$ASSINATURA_ID"
 
@@ -46,7 +48,7 @@ if [[ "${CONFIRMAR:-sim}" == "sim" ]]; then
 fi
 
 passo "Registrando os provedores de recursos (só na primeira vez demora)"
-for provedor in Microsoft.App Microsoft.OperationalInsights Microsoft.ManagedIdentity Microsoft.Storage; do
+for provedor in Microsoft.Web Microsoft.ManagedIdentity Microsoft.Storage; do
   estado="$(az provider show -n "$provedor" --query registrationState -o tsv 2>/dev/null || echo NotRegistered)"
   if [[ "$estado" != "Registered" ]]; then
     az provider register -n "$provedor" --wait -o none
@@ -94,6 +96,7 @@ ok "infra/backend.hcl"
 cat >"$INFRA/terraform.tfvars" <<EOF
 prefixo            = "$PREFIXO"
 localizacao        = "$LOCALIZACAO"
+sku                = "$SKU"
 imagem             = "$IMAGEM"
 github_repositorio = "$REPO_GITHUB"
 demo_falhas        = false
@@ -125,6 +128,7 @@ URL="$(saida url_publica)"
 
 passo "Conferindo a aplicação no ar"
 no_ar=nao
+# No F1 o primeiro start baixa a imagem e sobe o container: pode levar alguns minutos.
 for _ in $(seq 1 30); do
   if curl -fsS "$URL/healthz" >/dev/null 2>&1; then
     ok "$URL/healthz respondeu"
@@ -134,35 +138,59 @@ for _ in $(seq 1 30); do
   sleep 10
 done
 if [[ "$no_ar" == "nao" ]]; then
-  printf '  \033[33m!\033[0m %s\n' "$URL ainda não respondeu em 5 min. Veja os logs: az containerapp logs show -n $(saida container_app) -g $(saida resource_group) --tail 50"
+  printf '  \033[33m!\033[0m %s\n' "$URL ainda não respondeu em 5 min. Veja os logs: az webapp log tail -n $(saida web_app) -g $(saida resource_group)"
 fi
 
-passo "Pronto! Configure o GitHub (Settings → Secrets and variables → Actions → aba Variables)"
+passo "Configurando o deploy automático no GitHub"
+VARIAVEIS=(
+  "AZURE_CLIENT_ID=$(saida azure_client_id)"
+  "AZURE_TENANT_ID=$TENANT_ID"
+  "AZURE_SUBSCRIPTION_ID=$ASSINATURA_ID"
+  "AZURE_RESOURCE_GROUP=$(saida resource_group)"
+  "AZURE_WEBAPP_NAME=$(saida web_app)"
+  "DEPLOY_HABILITADO=true"
+)
+github_ok=nao
+if command -v gh >/dev/null; then
+  if ! gh auth status --hostname github.com >/dev/null 2>&1; then
+    echo "  Para criar as variables do GitHub automaticamente, faça login uma vez."
+    echo "  Vai aparecer um código: abra https://github.com/login/device e cole o código."
+    gh auth login --hostname github.com --git-protocol https --web --scopes repo,workflow || true
+  fi
+  if gh auth status --hostname github.com >/dev/null 2>&1; then
+    for par in "${VARIAVEIS[@]}"; do
+      gh variable set "${par%%=*}" --repo "$REPO_GITHUB" --body "${par#*=}"
+      ok "${par%%=*}"
+    done
+    github_ok=sim
+    if gh workflow run devsecops.yml --repo "$REPO_GITHUB" --ref main 2>/dev/null; then
+      ok "Primeiro deploy disparado: https://github.com/$REPO_GITHUB/actions"
+    fi
+  fi
+fi
+
+if [[ "$github_ok" == "nao" ]]; then
+  echo
+  echo "  Não consegui usar o GitHub CLI. Crie estas VARIABLES em"
+  echo "  https://github.com/$REPO_GITHUB/settings/variables/actions (nenhuma é segredo):"
+  echo
+  for par in "${VARIAVEIS[@]}"; do
+    printf '    %-24s %s\n' "${par%%=*}" "${par#*=}"
+  done
+fi
+
+passo "Pronto!"
 cat <<EOF
 
   URL pública do MVP:  $URL
+  (no plano F1 o app dorme após ~20 min sem acesso; o primeiro acesso leva uns 30 s)
 
-  Crie estas VARIABLES (não são segredos; o deploy usa OIDC, sem senha):
-
-    AZURE_CLIENT_ID          $(saida azure_client_id)
-    AZURE_TENANT_ID          $TENANT_ID
-    AZURE_SUBSCRIPTION_ID    $ASSINATURA_ID
-    AZURE_RESOURCE_GROUP     $(saida resource_group)
-    AZURE_CONTAINERAPP_NAME  $(saida container_app)
-    DEPLOY_HABILITADO        true
-
-  Se você tiver o GitHub CLI logado (gh auth login), estes comandos fazem isso:
-
-    gh variable set AZURE_CLIENT_ID --repo $REPO_GITHUB --body "$(saida azure_client_id)"
-    gh variable set AZURE_TENANT_ID --repo $REPO_GITHUB --body "$TENANT_ID"
-    gh variable set AZURE_SUBSCRIPTION_ID --repo $REPO_GITHUB --body "$ASSINATURA_ID"
-    gh variable set AZURE_RESOURCE_GROUP --repo $REPO_GITHUB --body "$(saida resource_group)"
-    gh variable set AZURE_CONTAINERAPP_NAME --repo $REPO_GITHUB --body "$(saida container_app)"
-    gh variable set DEPLOY_HABILITADO --repo $REPO_GITHUB --body true
+  Deploy sem senha: o GitHub usa OIDC com a identidade $(saida azure_client_id)
+  Daqui para frente, qualquer push na main publica sozinho.
 
   Para o Prometheus local ler o /metrics de produção:
     host:  $(saida fqdn)
-    token: guardado em infra/.metrics_token (copie para observability/prometheus/metrics_token)
-
-  Depois, qualquer push na main faz o deploy sozinho.
+    token: $(cat "$ARQ_TOKEN")
+    (guarde o token: a sessão do Cloud Shell pode ser apagada; ele vai em
+     observability/prometheus/metrics_token no seu computador)
 EOF

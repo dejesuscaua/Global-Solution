@@ -8,8 +8,6 @@
 # Usa identidade gerenciada (e não app registration) porque contas Azure for Students
 # normalmente não podem criar aplicativos no Entra ID do tenant da faculdade.
 
-data "azurerm_client_config" "atual" {}
-
 resource "azurerm_user_assigned_identity" "deploy" {
   name                = "id-${var.prefixo}-deploy"
   location            = azurerm_resource_group.rg.location
@@ -28,7 +26,7 @@ resource "azurerm_federated_identity_credential" "github_producao" {
 }
 
 # Contributor apenas no resource group da aplicação: o pipeline consegue atualizar o
-# Container App, mas não enxerga nem altera nada fora dele.
+# Web App, mas não enxerga nem altera nada fora dele.
 resource "azurerm_role_assignment" "deploy_rg" {
   scope                = azurerm_resource_group.rg.id
   role_definition_name = "Contributor"

@@ -337,8 +337,8 @@
       "status": "no_ar",
       "resumo": "Esta página. Cada push passa por varredura de segredos, código e imagem antes de chegar à nuvem.",
       "como": [
-        "Imagem Docker enxuta, com usuário não root e sem segredo dentro",
-        "Azure Container Apps criado por Terraform, sem porta de administração aberta",
+        "Imagem Docker enxuta, com usuário não root e sem segredo dentro; deploy sem senha via OIDC",
+        "Azure App Service F1 criado por Terraform, com o painel de administração negado para todos os IPs",
         "GitHub Actions com testes, Gitleaks, Semgrep e Trivy a cada push",
         "Prometheus, Grafana e Alertmanager medindo as quatro métricas de ouro"
       ],
@@ -349,17 +349,17 @@
         ],
         [
           "0",
-          "portas de admin expostas"
+          "senhas de deploy guardadas"
         ],
         [
-          "4",
-          "métricas de ouro no painel"
+          "R$ 0",
+          "de nuvem por mês (plano F1)"
         ]
       ],
       "stack": [
         "Docker",
         "Terraform",
-        "Azure Container Apps",
+        "Azure App Service",
         "GitHub Actions",
         "Prometheus",
         "Grafana"
@@ -401,7 +401,7 @@
     },
     {
       "etapa": "Deploy",
-      "ferramenta": "Azure Container Apps",
+      "ferramenta": "Azure App Service (OIDC)",
       "barra": "versão que não responde ao /healthz"
     }
   ],

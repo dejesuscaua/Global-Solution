@@ -23,6 +23,8 @@ scrape_configs:
           ambiente: local
 
   - job_name: seguwatts-producao
+    # 60 s para não gastar a cota de CPU do plano F1 (60 min/dia).
+    scrape_interval: 60s
     scheme: https
     metrics_path: /metrics
     authorization:

@@ -490,7 +490,7 @@
       "id": 8,
       "type": "timeseries",
       "title": "Saturação",
-      "description": "Métrica de ouro 4: quão perto do limite o container está (0,25 vCPU e 512 MiB no Azure).",
+      "description": "Métrica de ouro 4: quão perto do limite o processo está (1 núcleo e 1 GiB de RAM do plano F1).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -548,7 +548,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(process_cpu_seconds_total{job=~\"$job\"}[1m])) / 0.25",
+          "expr": "sum(rate(process_cpu_seconds_total{job=~\"$job\"}[1m])) / 1",
           "legendFormat": "CPU usada / limite"
         },
         {
@@ -557,7 +557,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(process_resident_memory_bytes{job=~\"$job\"}) / (512*1024*1024)",
+          "expr": "sum(process_resident_memory_bytes{job=~\"$job\"}) / (1024*1024*1024)",
           "legendFormat": "memória usada / limite"
         }
       ]

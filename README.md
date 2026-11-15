@@ -82,15 +82,17 @@ flowchart LR
     t & gl & sg & iac --> b[docker build]
     b --> tv[Trivy na imagem]
     tv -->|main| push[push GHCR<br/>tag = SHA]
-    push --> dep[az containerapp update]
+    push --> dep[az webapp config<br/>container set]
     dep --> smoke[smoke test /healthz]
   end
   gh --> CI
 
-  subgraph Azure["Azure · Brazil South (criado por Terraform)"]
+  subgraph Azure["Azure App Service · Brazil South (criado por Terraform)"]
     direction TB
-    ing[Ingress HTTPS gerenciado<br/>somente 443] --> ca[Container App<br/>uvicorn · usuário 10001<br/>0,25 vCPU · 512 MiB]
-    ca -->|stdout| law[(Log Analytics<br/>30 dias · cota 0,5 GB/dia)]
+    ing[HTTPS gerenciado *.azurewebsites.net<br/>só 443 · TLS 1.2+] --> ca[Web App Linux · plano F1<br/>container uvicorn · usuário 10001]
+    ca -->|logs HTTP| law[(Logs do App Service<br/>7 dias)]
+    scm[[Kudu/SCM: negado para todos os IPs<br/>FTP e basic auth desligados]] -.- ca
+    idn[[Identidade gerenciada<br/>OIDC · Contributor no RG]] -.- ca
     sec[[Secret: METRICS_TOKEN]] -.-> ca
   end
   push -. imagem .-> ghcr[(GHCR)]
@@ -113,7 +115,7 @@ flowchart LR
 |---|---|---|
 | Aplicação | FastAPI + Jinja2, renderizada no servidor | Funciona sem JavaScript e em celular de entrada; sem banco nem formulário, logo sem dado pessoal |
 | Container | `python:3.13-slim` multi-stage, usuário `10001`, sem `pip` | Imagem de ~200 MB, superfície de ataque mínima, nada além do necessário (`.dockerignore` em modo lista branca) |
-| Nuvem | Azure Container Apps (consumo) | HTTPS gerenciado, sem VM, sem SSH, sem porta de administração; cabe no crédito do Azure for Students |
+| Nuvem | Azure App Service Linux, plano **F1 (gratuito)** | HTTPS gerenciado, sem VM e sem SSH; painel Kudu/SCM negado para todos os IPs, FTP e publicação por senha desligados; custo zero |
 | IaC | Terraform `azurerm ~> 4.40`, state remoto em Azure Storage | Infra reproduzível; state e `.tfvars` nunca entram no Git |
 | CI/CD | GitHub Actions com actions fixadas por SHA | Toda alteração passa pelas mesmas barreiras; deploy só da `main` |
 | Registro | GHCR (`ghcr.io/dejesuscaua/global-solution`) | Gratuito para repositório público, autenticado pelo `GITHUB_TOKEN` efêmero |
@@ -205,7 +207,7 @@ Em **GitHub → Settings → Secrets and variables → Actions → Variables**, 
 | `AZURE_TENANT_ID` | `terraform -chdir=infra output -raw azure_tenant_id` |
 | `AZURE_SUBSCRIPTION_ID` | `terraform -chdir=infra output -raw azure_subscription_id` |
 | `AZURE_RESOURCE_GROUP` | `terraform -chdir=infra output -raw resource_group` |
-| `AZURE_CONTAINERAPP_NAME` | `terraform -chdir=infra output -raw container_app` |
+| `AZURE_WEBAPP_NAME` | `terraform -chdir=infra output -raw web_app` |
 | `DEPLOY_HABILITADO` | `true` |
 
 Nenhum desses valores é segredo: sozinhos, eles não dão acesso a nada. A partir daí, cada push na `main` que passar por todas as barreiras é publicado sozinho, e o job só termina com sucesso quando o `/healthz` público responde com o SHA do novo commit.
@@ -225,7 +227,7 @@ Arquivo: [`.github/workflows/devsecops.yml`](.github/workflows/devsecops.yml). R
 | Imagem | Trivy | a imagem tem vulnerabilidade HIGH/CRITICAL com correção disponível |
 | Deploy | Azure CLI + smoke test | a nova revisão não responde no `/healthz` com o SHA esperado |
 
-O deploy usa **OIDC**: o job troca um token de curta duração por acesso ao Azure, sem nenhuma senha guardada no GitHub. O único segredo da aplicação (`METRICS_TOKEN`) fica no **secret do Container App**, e o GHCR usa o `GITHUB_TOKEN` efêmero do próprio job. As actions de terceiros são fixadas por SHA de commit, e o workflow roda com `permissions: contents: read` (só o job de build ganha `packages: write`).
+O deploy usa **OIDC**: o job troca um token de curta duração por acesso ao Azure, sem nenhuma senha guardada no GitHub. O único segredo da aplicação (`METRICS_TOKEN`) fica em uma **app setting do Web App** (criptografada em repouso), e o GHCR usa o `GITHUB_TOKEN` efêmero do próprio job. As actions de terceiros são fixadas por SHA de commit, e o workflow roda com `permissions: contents: read` (só o job de build ganha `packages: write`).
 
 O roteiro para gerar a evidência de **uma execução barrada e a corrigida** está em [docs/EVIDENCIAS.md](docs/EVIDENCIAS.md).
 
@@ -283,11 +285,11 @@ Em produção, o mesmo vale com `demo_falhas = true` no Terraform e `URL=https:/
 | Camada | Microsoft Azure | Equipe SeguWatts |
 |---|---|---|
 | Datacenter, rede física, hardware | ✔ | |
-| Hipervisor, sistema do nó, Kubernetes por trás do Container Apps | ✔ | |
+| Hipervisor, sistema operacional e runtime de containers do App Service | ✔ | |
 | Ingress, certificado TLS e balanceamento | ✔ (opera) | ✔ (exige HTTPS: `allow_insecure_connections = false`) |
 | Imagem do container: base, bibliotecas, CVEs | | ✔ (Trivy, `apt-get upgrade`, dependências fixadas) |
 | Código da aplicação e cabeçalhos de segurança | | ✔ (Semgrep, testes, CSP) |
-| Segredos e credenciais | ✔ (cofre de secrets do Container App, emissão de tokens OIDC) | ✔ (Gitleaks, deploy sem senha via OIDC, nada no repositório) |
+| Segredos e credenciais | ✔ (app settings criptografadas, emissão de tokens OIDC) | ✔ (Gitleaks, deploy sem senha via OIDC, nada no repositório) |
 | Identidade e permissões | ✔ (Entra ID / RBAC) | ✔ (identidade gerenciada do deploy, Contributor só no resource group) |
 | Configuração da infraestrutura | | ✔ (Terraform revisado, Trivy config) |
 | Dados e LGPD | | ✔ (minimização, retenção, região) |
@@ -298,7 +300,7 @@ Em produção, o mesmo vale com `demo_falhas = true` no Terraform e `URL=https:/
 | Onde | O que existe | Tratamento |
 |---|---|---|
 | Esta vitrine | Nenhum dado pessoal coletado: sem formulário, sem cookie, sem banco, sem analytics | Só nome e RM da equipe, publicados com o consentimento dos integrantes |
-| Logs do Container Apps (Log Analytics, Brazil South) | IP de quem acessa e linha da requisição | Retenção de 30 dias, acesso restrito ao resource group, dados no Brasil |
+| Logs HTTP do App Service (Brazil South) | IP de quem acessa e linha da requisição | Retenção de 7 dias (limite de 35 MB), acesso restrito ao resource group, dados no Brasil |
 | Métricas (Prometheus) | Só contadores agregados por rota e status | Nenhum IP, usuário ou URL livre (rota pelo molde) |
 | Pipeline de dados (Databricks) | Cadastro e consumo **simulados** | Camada Ouro sem nome, CPF, e-mail ou telefone; titular e residência em SHA-256 com sal fora do código |
 | Automação (n8n + Google Sheets) | Consumo por aparelho e e-mail do morador | Planilha privada; o agente de IA recebe só os aparelhos críticos, não o cadastro |
@@ -307,19 +309,22 @@ Em produção, o mesmo vale com `demo_falhas = true` no Terraform e `URL=https:/
 
 ## Estimativa de custo mensal
 
-Premissas: 1 réplica sempre ligada (0,25 vCPU e 0,5 GiB), tráfego de avaliação (menos de 100 mil requisições por mês) e preços públicos de consumo do Azure Container Apps em novembro de 2026. Confira na [calculadora do Azure](https://azure.microsoft.com/pricing/calculator/), porque os preços mudam.
+Premissas: plano F1 do App Service, tráfego de avaliação e preços públicos do Azure em novembro de 2026. Confira na [calculadora do Azure](https://azure.microsoft.com/pricing/calculator/), porque os preços mudam.
 
-| Item | Cálculo | US$/mês |
+| Item | Detalhe | US$/mês |
 |---|---|---|
-| Container Apps: vCPU | 0,25 × 2.592.000 s = 648.000 vCPU·s − 180.000 gratuitos = 468.000 × US$ 0,000003 (ocioso) | ~1,40 |
-| Container Apps: memória | 0,5 × 2.592.000 s = 1.296.000 GiB·s − 360.000 gratuitos = 936.000 × US$ 0,000003 | ~2,81 |
-| Container Apps: requisições | Menos de 2 milhões gratuitas | 0,00 |
-| Log Analytics | Menos de 5 GB/mês gratuitos (cota de 0,5 GB/dia no Terraform) | 0,00 |
+| App Service plano F1 (Linux) | Gratuito: 1 GB de RAM, 60 min de CPU por dia, 1 GB de disco | 0,00 |
+| Identidade gerenciada + federated credential | Sem custo | 0,00 |
+| Logs HTTP do App Service | No sistema de arquivos do próprio app (7 dias, 35 MB) | 0,00 |
 | Storage do tfstate | Alguns KB, Standard LRS | < 0,05 |
 | GHCR e GitHub Actions | Gratuitos para repositório público | 0,00 |
-| **Total estimado** | | **~US$ 4,30 (≈ R$ 25)** |
+| **Total estimado** | | **< US$ 0,05 (centavos de real)** |
 
-O valor cabe com folga no crédito de US$ 100 do Azure for Students. Com `min_replicas = 0`, o custo de computação ocioso cai para praticamente zero, mas a primeira visita depois de um tempo parado leva alguns segundos (cold start). Por isso mantivemos uma réplica durante a correção.
+**Trade-offs do F1:**
+- O app dorme após ~20 min sem acesso (o F1 não permite *always on*), então a primeira visita depois disso leva uns 30 s.
+- Há uma cota de 60 min de CPU por dia, folgada para uma vitrine; o Prometheus de produção coleta a cada 60 s para não gastar essa cota.
+
+Para tráfego real, basta `SKU=B1 ./scripts/azure_setup.sh`: plano Basic, *always on* ligado, cerca de US$ 13/mês, coberto pelo crédito de US$ 100 do Azure for Students.
 
 Para não pagar nada depois da avaliação: `terraform destroy` em `infra/` e `az group delete -n rg-seguwatts-tfstate`.
 
@@ -333,7 +338,7 @@ app/                    aplicação FastAPI (rotas, métricas, template, CSS, fo
 tests/                  testes de rotas, cabeçalhos, métricas e token
 Dockerfile              multi-stage, usuário não root, sem pip
 docker-compose.yml      app + Prometheus + Alertmanager + Grafana + notificador
-infra/                  Terraform (Azure Container Apps, Log Analytics)
+infra/                  Terraform (App Service F1, identidade OIDC do deploy)
 observability/          configurações e painel provisionado do Grafana
 scripts/gerar_trafego.sh  tráfego de demonstração e disparo de alerta
 .github/workflows/      pipeline DevSecOps

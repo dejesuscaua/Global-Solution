@@ -1,11 +1,11 @@
 output "url_publica" {
   description = "URL pública do MVP."
-  value       = "https://${azurerm_container_app.app.ingress[0].fqdn}"
+  value       = "https://${azurerm_linux_web_app.app.default_hostname}"
 }
 
 output "fqdn" {
   description = "Host para o targets/producao.json do Prometheus."
-  value       = azurerm_container_app.app.ingress[0].fqdn
+  value       = azurerm_linux_web_app.app.default_hostname
 }
 
 output "resource_group" {
@@ -13,9 +13,9 @@ output "resource_group" {
   value       = azurerm_resource_group.rg.name
 }
 
-output "container_app" {
-  description = "Variable AZURE_CONTAINERAPP_NAME no GitHub."
-  value       = azurerm_container_app.app.name
+output "web_app" {
+  description = "Variable AZURE_WEBAPP_NAME no GitHub."
+  value       = azurerm_linux_web_app.app.name
 }
 
 output "azure_client_id" {

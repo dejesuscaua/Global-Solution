@@ -4,7 +4,7 @@
 #
 #   ./scripts/gerar_trafego.sh                         # tráfego normal no local
 #   ./scripts/gerar_trafego.sh --com-falhas            # ~30% de erros 500 (dispara o alerta)
-#   URL=https://seu-app.azurecontainerapps.io ./scripts/gerar_trafego.sh
+#   URL=https://seguwatts-xxxxxx.azurewebsites.net ./scripts/gerar_trafego.sh
 set -euo pipefail
 
 URL="${URL:-http://127.0.0.1:8000}"
