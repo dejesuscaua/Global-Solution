@@ -4,5 +4,4 @@ prefixo            = "seguwatts"
 localizacao        = "brazilsouth"
 sku                = "F1"
 imagem             = "dejesuscaua/global-solution:latest"
-github_repositorio = "dejesuscaua/Global-Solution"
 demo_falhas        = false

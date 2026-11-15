@@ -98,7 +98,6 @@ prefixo            = "$PREFIXO"
 localizacao        = "$LOCALIZACAO"
 sku                = "$SKU"
 imagem             = "$IMAGEM"
-github_repositorio = "$REPO_GITHUB"
 demo_falhas        = false
 EOF
 ok "infra/terraform.tfvars"
