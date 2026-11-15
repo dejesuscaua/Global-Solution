@@ -18,6 +18,8 @@ __pycache__/
 *.tfvars
 !*.tfvars.example
 backend.hcl
+*.tfplan
+infra/.metrics_token
 crash.log
 .terraform.lock.hcl.bak
 

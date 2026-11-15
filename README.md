@@ -164,57 +164,51 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
-### 3. Criar a nuvem com Terraform
+### 3. Criar a nuvem com Terraform (um comando)
 
-Requisitos: [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), Terraform ≥ 1.6 e uma assinatura Azure (Azure for Students serve).
+Requisito: uma assinatura Azure (Azure for Students serve) em que você seja **Owner**, o padrão para quem ativou a conta de estudante.
 
-```bash
-az login
-export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+O caminho mais curto é o **Azure Cloud Shell**, que já tem `az` e `terraform` instalados e já está logado:
 
-# 3.1 Storage para o state remoto (uma única vez)
-az group create -n rg-seguwatts-tfstate -l brazilsouth
-az storage account create -n stseguwattstfstate -g rg-seguwatts-tfstate -l brazilsouth \
-  --sku Standard_LRS --min-tls-version TLS1_2 --allow-blob-public-access false
-az storage container create -n tfstate --account-name stseguwattstfstate --auth-mode login
-az role assignment create --assignee $(az ad signed-in-user show --query id -o tsv) \
-  --role "Storage Blob Data Contributor" \
-  --scope $(az storage account show -n stseguwattstfstate -g rg-seguwatts-tfstate --query id -o tsv)
-
-# 3.2 Infra da aplicação
-cd infra
-cp backend.hcl.example backend.hcl
-cp terraform.tfvars.example terraform.tfvars
-export TF_VAR_metrics_token=$(openssl rand -hex 24)   # guarde: vai para o Prometheus
-terraform init -backend-config=backend.hcl
-terraform plan -out plano.tfplan
-terraform apply plano.tfplan
-terraform output url_publica
-```
-
-> O nome da storage account é global no Azure. Se `stseguwattstfstate` já existir, troque o nome no comando e no `backend.hcl`.
-
-A imagem `ghcr.io/dejesuscaua/global-solution:latest` precisa existir antes do primeiro `apply`. Para isso, faça um push na `main` (o pipeline publica a imagem) e torne o pacote público em **GitHub → Packages → global-solution → Package settings → Change visibility → Public**.
-
-### 4. Ligar o deploy automático
-
-1. Crie uma identidade para o pipeline, com permissão **só** no resource group da aplicação:
+1. Abra https://shell.azure.com e escolha **Bash**.
+2. Rode:
 
    ```bash
-   az ad sp create-for-rbac --name sp-seguwatts-deploy --role Contributor \
-     --scopes $(az group show -n rg-seguwatts --query id -o tsv) --json-auth
+   git clone https://github.com/dejesuscaua/Global-Solution.git
+   cd Global-Solution
+   ./scripts/azure_setup.sh
    ```
 
-2. Em **GitHub → Settings → Secrets and variables → Actions**:
+O script [`scripts/azure_setup.sh`](scripts/azure_setup.sh) é idempotente: se falhar no meio, corrija e rode de novo. Ele:
 
-   | Tipo | Nome | Valor |
-   |---|---|---|
-   | Secret | `AZURE_CREDENTIALS` | JSON completo do comando acima |
-   | Secret | `AZURE_RESOURCE_GROUP` | `terraform output -raw resource_group` |
-   | Secret | `AZURE_CONTAINERAPP_NAME` | `terraform output -raw container_app` |
-   | Variable | `DEPLOY_HABILITADO` | `true` |
+1. registra os provedores necessários (`Microsoft.App`, `Microsoft.OperationalInsights`, `Microsoft.ManagedIdentity`, `Microsoft.Storage`);
+2. cria o Storage Account do **state remoto** (TLS 1.2, só HTTPS, sem acesso público);
+3. gera `infra/backend.hcl`, `infra/terraform.tfvars` e o token de métricas em `infra/.metrics_token`, todos fora do git;
+4. roda `terraform init`, `plan` e `apply`;
+5. confere se a aplicação respondeu no `/healthz` e imprime os valores para configurar o GitHub.
 
-3. A partir daí, cada push na `main` que passar por todas as barreiras é publicado sozinho. O job só termina com sucesso quando o `/healthz` público responde com o SHA do novo commit.
+> **Região bloqueada?** Algumas assinaturas de estudante só permitem certas regiões. Se aparecer `RequestDisallowedByAzure`, rode `LOCALIZACAO=eastus2 ./scripts/azure_setup.sh`.
+
+No seu computador também funciona: instale a [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) e o Terraform ≥ 1.6, rode `az login` e depois o script.
+
+A imagem `ghcr.io/dejesuscaua/global-solution:latest` já é publicada pelo pipeline a cada push na `main`, e o pacote precisa estar público para o Azure baixá-la.
+
+### 4. Ligar o deploy automático (sem senha, via OIDC)
+
+O Terraform cria uma **identidade gerenciada** (`id-seguwatts-deploy`) com papel **Contributor apenas no resource group da aplicação**. Ela recebe uma *federated credential* que só aceita tokens do job que roda no environment `producao` deste repositório. O GitHub Actions troca o próprio token OIDC, de curta duração, por um acesso ao Azure. **Não existe client secret guardado em lugar nenhum.** Usamos identidade gerenciada, e não app registration, porque contas Azure for Students normalmente não podem criar aplicativos no Entra ID da faculdade.
+
+Em **GitHub → Settings → Secrets and variables → Actions → Variables**, crie os valores que o script imprimiu:
+
+| Variable | Valor |
+|---|---|
+| `AZURE_CLIENT_ID` | `terraform -chdir=infra output -raw azure_client_id` |
+| `AZURE_TENANT_ID` | `terraform -chdir=infra output -raw azure_tenant_id` |
+| `AZURE_SUBSCRIPTION_ID` | `terraform -chdir=infra output -raw azure_subscription_id` |
+| `AZURE_RESOURCE_GROUP` | `terraform -chdir=infra output -raw resource_group` |
+| `AZURE_CONTAINERAPP_NAME` | `terraform -chdir=infra output -raw container_app` |
+| `DEPLOY_HABILITADO` | `true` |
+
+Nenhum desses valores é segredo: sozinhos, eles não dão acesso a nada. A partir daí, cada push na `main` que passar por todas as barreiras é publicado sozinho, e o job só termina com sucesso quando o `/healthz` público responde com o SHA do novo commit.
 
 ---
 
@@ -231,7 +225,7 @@ Arquivo: [`.github/workflows/devsecops.yml`](.github/workflows/devsecops.yml). R
 | Imagem | Trivy | a imagem tem vulnerabilidade HIGH/CRITICAL com correção disponível |
 | Deploy | Azure CLI + smoke test | a nova revisão não responde no `/healthz` com o SHA esperado |
 
-Segredos ficam só em **GitHub Secrets** e no **secret do Container App**. O GHCR usa o `GITHUB_TOKEN` efêmero do próprio job. As actions de terceiros são fixadas por SHA de commit, e o workflow roda com `permissions: contents: read` (só o job de build ganha `packages: write`).
+O deploy usa **OIDC**: o job troca um token de curta duração por acesso ao Azure, sem nenhuma senha guardada no GitHub. O único segredo da aplicação (`METRICS_TOKEN`) fica no **secret do Container App**, e o GHCR usa o `GITHUB_TOKEN` efêmero do próprio job. As actions de terceiros são fixadas por SHA de commit, e o workflow roda com `permissions: contents: read` (só o job de build ganha `packages: write`).
 
 O roteiro para gerar a evidência de **uma execução barrada e a corrigida** está em [docs/EVIDENCIAS.md](docs/EVIDENCIAS.md).
 
@@ -266,7 +260,7 @@ O Alertmanager envia o alerta por webhook ao serviço `notificador`, que registr
 ```bash
 cp observability/prometheus/targets/producao.json.example observability/prometheus/targets/producao.json
 # edite o host com o valor de: terraform -chdir=infra output -raw fqdn
-echo -n "$TF_VAR_metrics_token" > observability/prometheus/metrics_token
+cp infra/.metrics_token observability/prometheus/metrics_token     # gerado pelo azure_setup.sh
 echo "METRICS_TOKEN_FILE=./observability/prometheus/metrics_token" >> .env
 docker compose up -d
 ```
@@ -293,8 +287,8 @@ Em produção, o mesmo vale com `demo_falhas = true` no Terraform e `URL=https:/
 | Ingress, certificado TLS e balanceamento | ✔ (opera) | ✔ (exige HTTPS: `allow_insecure_connections = false`) |
 | Imagem do container: base, bibliotecas, CVEs | | ✔ (Trivy, `apt-get upgrade`, dependências fixadas) |
 | Código da aplicação e cabeçalhos de segurança | | ✔ (Semgrep, testes, CSP) |
-| Segredos e credenciais | ✔ (cofre de secrets do Container App) | ✔ (Gitleaks, GitHub Secrets, nada no repositório) |
-| Identidade e permissões | ✔ (Entra ID / RBAC) | ✔ (service principal limitado ao resource group) |
+| Segredos e credenciais | ✔ (cofre de secrets do Container App, emissão de tokens OIDC) | ✔ (Gitleaks, deploy sem senha via OIDC, nada no repositório) |
+| Identidade e permissões | ✔ (Entra ID / RBAC) | ✔ (identidade gerenciada do deploy, Contributor só no resource group) |
 | Configuração da infraestrutura | | ✔ (Terraform revisado, Trivy config) |
 | Dados e LGPD | | ✔ (minimização, retenção, região) |
 | Monitoramento e resposta a incidente | ✔ (logs da plataforma) | ✔ (métricas de ouro, alertas) |

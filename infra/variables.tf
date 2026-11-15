@@ -37,6 +37,12 @@ variable "demo_falhas" {
   default     = false
 }
 
+variable "github_repositorio" {
+  description = "Repositório (dono/nome, com maiúsculas exatas) autorizado a fazer deploy via OIDC."
+  type        = string
+  default     = "dejesuscaua/Global-Solution"
+}
+
 variable "tags" {
   description = "Tags aplicadas a todos os recursos."
   type        = map(string)

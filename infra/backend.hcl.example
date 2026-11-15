@@ -1,6 +1,7 @@
-# Copie para backend.hcl (ignorado pelo git) e ajuste o nome da storage account.
+# Gerado automaticamente por scripts/azure_setup.sh (o arquivo real, backend.hcl, fica fora do git).
+# O state fica em um Storage Account criptografado, sem acesso público, e o Terraform
+# usa a sessão da Azure CLI para acessá-lo.
 resource_group_name  = "rg-seguwatts-tfstate"
-storage_account_name = "stseguwattstfstate"
+storage_account_name = "stseguwattstfXXXXXX"
 container_name       = "tfstate"
 key                  = "vitrine.tfstate"
-use_azuread_auth     = true

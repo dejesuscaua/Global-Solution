@@ -9,11 +9,26 @@ output "fqdn" {
 }
 
 output "resource_group" {
-  description = "Use como secret AZURE_RESOURCE_GROUP no GitHub."
+  description = "Variable AZURE_RESOURCE_GROUP no GitHub."
   value       = azurerm_resource_group.rg.name
 }
 
 output "container_app" {
-  description = "Use como secret AZURE_CONTAINERAPP_NAME no GitHub."
+  description = "Variable AZURE_CONTAINERAPP_NAME no GitHub."
   value       = azurerm_container_app.app.name
+}
+
+output "azure_client_id" {
+  description = "Variable AZURE_CLIENT_ID no GitHub (identidade do deploy, sem senha)."
+  value       = azurerm_user_assigned_identity.deploy.client_id
+}
+
+output "azure_tenant_id" {
+  description = "Variable AZURE_TENANT_ID no GitHub."
+  value       = data.azurerm_client_config.atual.tenant_id
+}
+
+output "azure_subscription_id" {
+  description = "Variable AZURE_SUBSCRIPTION_ID no GitHub."
+  value       = data.azurerm_client_config.atual.subscription_id
 }
