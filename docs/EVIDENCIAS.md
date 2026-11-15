@@ -9,13 +9,13 @@ O PDF único deve trazer links clicáveis (URL pública, repositório, execuçõ
 | 1 | Dockerfile (multi-stage, `USER 10001`, sem pip) | GitHub, arquivo `Dockerfile` | Container 2,0 |
 | 2 | `docker compose ps` com os 5 serviços *Up* e o app *healthy* | terminal | Container 2,0 |
 | 3 | `docker run --rm --entrypoint id <imagem>` mostrando `uid=10001(app)` | terminal | Container 2,0 |
-| 4 | `terraform apply` concluído e `terraform output url_publica` | terminal | IaC 3,0 |
+| 4 | `./scripts/azure_setup.sh` concluído (apply e URL pública) | Cloud Shell | IaC 3,0 |
 | 5 | Resource group no Portal Azure com os recursos criados pelo Terraform | portal.azure.com | IaC 3,0 |
-| 6 | Ingress do Container App: *Insecure connections: Disabled*, sem nenhuma porta de administração | Portal → Container App → Ingress | IaC 3,0 |
+| 6 | Web App: *HTTPS Only: On*, TLS mínimo 1.2, FTP desligado e *Advanced tool site (SCM)* com regra padrão **Deny** (nenhuma porta de administração aberta) | Portal → Web App → Configuration e Networking → Access restrictions | IaC 3,0 |
 | 7 | `.gitignore` mostrando `*.tfstate` e `*.tfvars`, e o state no Azure Storage | GitHub + Portal | IaC 3,0 |
 | 8 | Execução **barrada** pelo pipeline (ver roteiro abaixo) | GitHub → Actions | Pipeline 4,0 |
 | 9 | Execução **corrigida**, toda verde, com deploy e smoke test | GitHub → Actions | Pipeline 4,0 |
-| 10 | Tela de Secrets do repositório (só os nomes aparecem) | Settings → Secrets and variables | Pipeline 4,0 |
+| 10 | Variables do repositório (sem nenhum secret do Azure) e a federated credential da identidade `id-seguwatts-deploy` | GitHub Settings → Secrets and variables; Portal → Managed Identities → Federated credentials | Pipeline 4,0 |
 | 11 | Página pública no ar mostrando o SHA do último commit em "Versão publicada" | navegador | Pipeline 4,0 |
 | 12 | Painel Grafana "SeguWatts · Métricas de ouro" com o ambiente `seguwatts-producao` | http://127.0.0.1:3000 | Observabilidade 3,0 |
 | 13 | Alerta `TaxaDeErrosAlta` em *Firing* no Prometheus | http://127.0.0.1:9090/alerts | Observabilidade 3,0 |
@@ -68,7 +68,7 @@ Adicione em `app/main.py` uma rota com `subprocess.run(cmd, shell=True)` receben
 
 ## Links para colar no PDF
 
-- URL pública do MVP: `https://...azurecontainerapps.io`
+- URL pública do MVP: `https://seguwatts-xxxxxx.azurewebsites.net`
 - Repositório: https://github.com/dejesuscaua/Global-Solution
 - Execução barrada: `https://github.com/dejesuscaua/Global-Solution/actions/runs/<id>`
 - Execução corrigida com deploy: `https://github.com/dejesuscaua/Global-Solution/actions/runs/<id>`

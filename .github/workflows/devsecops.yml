@@ -2,7 +2,7 @@
 #
 #   push em qualquer branch / pull request:
 #     testes ─┐
-#     gitleaks ├─► build da imagem ─► Trivy na imagem ─► (main) push no GHCR ─► deploy no Azure ─► smoke test
+#     gitleaks ├─► build da imagem ─► Trivy na imagem ─► (main) push no GHCR ─► deploy no App Service ─► smoke test
 #     semgrep ─┤
 #     iac ─────┘   (terraform fmt/validate + Trivy config)
 #
@@ -121,7 +121,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Login no GHCR
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
@@ -129,7 +129,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push (somente main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           IMG="${{ steps.nome.outputs.imagem }}"
           docker tag "$IMG:${GITHUB_SHA}" "$IMG:latest"
@@ -137,38 +137,42 @@ jobs:
           docker push "$IMG:latest"
 
   deploy:
-    name: Deploy (Azure Container Apps)
+    name: Deploy (Azure App Service)
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_HABILITADO == 'true'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_HABILITADO == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC: o Azure aceita o token do job, sem senha guardada no GitHub
     environment:
       name: producao
       url: ${{ steps.smoke.outputs.url }}
+    env:
+      RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+      APP: ${{ vars.AZURE_WEBAPP_NAME }}
     steps:
       - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Atualiza a imagem do Container App
-        env:
-          RG: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          APP: ${{ secrets.AZURE_CONTAINERAPP_NAME }}
+      - name: Atualiza a imagem do Web App
         run: |
-          az extension add --name containerapp --upgrade --yes --only-show-errors
-          az containerapp update --name "$APP" --resource-group "$RG" \
-            --image "${{ needs.build.outputs.imagem }}:${GITHUB_SHA}" --only-show-errors -o none
+          az webapp config container set --name "$APP" --resource-group "$RG" \
+            --container-registry-url https://ghcr.io \
+            --container-image-name "${{ needs.build.outputs.imagem }}:${GITHUB_SHA}" \
+            --only-show-errors -o none
 
       - name: Smoke test (a nova versão precisa responder no /healthz)
         id: smoke
-        env:
-          RG: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          APP: ${{ secrets.AZURE_CONTAINERAPP_NAME }}
         run: |
-          FQDN=$(az containerapp show --name "$APP" --resource-group "$RG" --query properties.configuration.ingress.fqdn -o tsv)
+          FQDN=$(az webapp show --name "$APP" --resource-group "$RG" --query defaultHostName -o tsv)
           URL="https://${FQDN}"
           echo "url=${URL}" >> "$GITHUB_OUTPUT"
           ESPERADO="${GITHUB_SHA::7}"
-          for i in $(seq 1 30); do
+          # No plano F1 o container pode estar dormindo: a primeira resposta leva até ~1 min.
+          for i in $(seq 1 36); do
             VERSAO=$(curl -fsS "${URL}/healthz" | python3 -c 'import json,sys; print(json.load(sys.stdin)["versao"])' || true)
             if [ "$VERSAO" = "$ESPERADO" ]; then
               echo "### Deploy concluído: ${URL} na versão ${VERSAO}" >> "$GITHUB_STEP_SUMMARY"
@@ -177,5 +181,5 @@ jobs:
             echo "Tentativa $i: versão no ar '${VERSAO}', esperando '${ESPERADO}'..."
             sleep 10
           done
-          echo "A versão ${ESPERADO} não respondeu no /healthz em 5 minutos." >&2
+          echo "A versão ${ESPERADO} não respondeu no /healthz em 6 minutos." >&2
           exit 1

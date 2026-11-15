@@ -16,8 +16,20 @@ variable "localizacao" {
 }
 
 variable "imagem" {
-  description = "Imagem inicial do container. Depois do primeiro apply, o pipeline troca a tag a cada deploy."
+  description = "Imagem inicial no GHCR (sem o host). Depois do primeiro apply, o pipeline troca a tag a cada deploy."
   type        = string
+  default     = "dejesuscaua/global-solution:latest"
+}
+
+variable "sku" {
+  description = "Plano do App Service. F1 é gratuito (60 min de CPU por dia, sem always on); B1 é o menor pago."
+  type        = string
+  default     = "F1"
+
+  validation {
+    condition     = contains(["F1", "B1", "B2", "S1"], var.sku)
+    error_message = "Use F1 (gratuito), B1, B2 ou S1."
+  }
 }
 
 variable "metrics_token" {
@@ -35,6 +47,12 @@ variable "demo_falhas" {
   description = "Liga a rota /api/demo/falha para demonstrar o alerta de erros. Deixe false fora da demonstração."
   type        = bool
   default     = false
+}
+
+variable "github_repositorio" {
+  description = "Repositório (dono/nome, com maiúsculas exatas) autorizado a fazer deploy via OIDC."
+  type        = string
+  default     = "dejesuscaua/Global-Solution"
 }
 
 variable "tags" {
