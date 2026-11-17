@@ -159,39 +159,44 @@
       "componente": "Visão",
       "disciplina": "Applied Computer Vision",
       "nome": "SeguWatts Vision",
-      "status": "em_construcao",
-      "resumo": "Uma câmera que vê aparelhos ligados em cômodos vazios e transforma isso em alerta de desperdício.",
+      "status": "entregue",
+      "resumo": "Uma câmera que vê luz e TV ligadas em cômodos vazios e transforma isso em alerta de desperdício.",
       "como": [
-        "Modelo YOLO treinado com fotos das casas da equipe: lâmpadas e telas ligadas ou desligadas",
-        "A mesma rede detecta pessoas em tempo real, quadro a quadro, pela webcam",
-        "Regra: aparelho ligado e cômodo vazio por mais de 2 minutos gera um evento de desperdício",
-        "O evento, sem nenhuma imagem, vai para o mesmo webhook do n8n usado pela automação e para um CSV local"
+        "YOLO11 nano treinada pela equipe com 695 imagens públicas de lâmpadas acesas e apagadas (Roboflow Universe)",
+        "A YOLO pré-treinada no COCO detecta pessoas e TVs no mesmo quadro; o estado da TV vem do brilho da tela",
+        "Regra temporal: aparelho ligado e cômodo vazio por mais de 2 minutos gera um evento de desperdício",
+        "Roda ao vivo pela webcam no Colab; o evento, sem nenhuma imagem, vai para o webhook do n8n e para um CSV local"
       ],
       "numeros": [
         [
-          "5",
-          "classes treinadas pela equipe"
+          "0,783",
+          "mAP@50 no conjunto de teste"
         ],
         [
-          "≥ 0,80",
-          "meta de mAP@50"
+          "0,92",
+          "mAP@50 em luminária apagada"
         ],
         [
-          "≥ 15 FPS",
-          "na CPU com YOLO nano"
+          "9,9 FPS",
+          "em CPU, sem GPU"
         ]
       ],
       "stack": [
         "Python",
-        "Ultralytics YOLO",
+        "Ultralytics YOLO11",
         "OpenCV",
-        "Roboflow"
+        "Roboflow",
+        "Google Colab"
       ],
-      "limite": "Imagens nunca saem do dispositivo: só o evento (cômodo, aparelho, horário e custo estimado) é enviado. Código e integração prontos; o modelo final depende do dataset fotografado pela equipe.",
+      "limite": "Imagens nunca saem do dispositivo: só o evento (cômodo, aparelho, horário e custo estimado) é enviado. O estado da TV usa uma regra de brilho, não um modelo treinado.",
       "links": [
         {
           "rotulo": "Repositório",
           "url": "https://github.com/dejesuscaua/Gs-visaocomputacional"
+        },
+        {
+          "rotulo": "Vídeo",
+          "url": "https://youtu.be/TOoxmunTYGY"
         }
       ]
     },
